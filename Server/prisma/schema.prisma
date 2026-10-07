@@ -1,0 +1,77 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        Int       @id @default(autoincrement())
+  email     String    @unique
+  password  String
+  role      String    @default("EMPLOYEE") // ADMIN | HR | EMPLOYEE
+  createdAt DateTime  @default(now())
+  employee  Employee?
+  runs      PayrollRun[]
+}
+
+model Employee {
+  id         Int       @id @default(autoincrement())
+  userId     Int       @unique
+  user       User      @relation(fields: [userId], references: [id])
+  employeeNo String    @unique
+  firstName  String
+  lastName   String
+  position   String
+  department String
+  baseSalary Int       // monthly, in minor units (e.g. centavos)
+  hireDate   DateTime
+  tin        String?
+  sssNo      String?
+  philhealth String?
+  pagibig    String?
+  status     String    @default("ACTIVE") // ACTIVE | INACTIVE
+  payslips   Payslip[]
+}
+
+model PayrollRun {
+  id          Int       @id @default(autoincrement())
+  periodStart DateTime
+  periodEnd   DateTime
+  status      String    @default("DRAFT") // DRAFT | APPROVED | PAID
+  createdById Int
+  createdBy   User      @relation(fields: [createdById], references: [id])
+  createdAt   DateTime  @default(now())
+  paidAt      DateTime?
+  payslips    Payslip[]
+
+  @@unique([periodStart, periodEnd]) // no duplicate runs for a period
+}
+
+model Payslip {
+  id              Int           @id @default(autoincrement())
+  runId           Int
+  run             PayrollRun    @relation(fields: [runId], references: [id], onDelete: Cascade)
+  employeeId      Int
+  employee        Employee      @relation(fields: [employeeId], references: [id])
+  gross           Int
+  totalDeductions Int
+  net             Int
+  items           PayslipItem[]
+
+  @@unique([runId, employeeId])
+}
+
+model PayslipItem {
+  id        Int     @id @default(autoincrement())
+  payslipId Int
+  payslip   Payslip @relation(fields: [payslipId], references: [id], onDelete: Cascade)
+  type      String  // EARNING | DEDUCTION
+  label     String
+  amount    Int     // always positive; type decides the sign
+}
